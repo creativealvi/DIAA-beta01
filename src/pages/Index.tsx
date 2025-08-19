@@ -75,76 +75,7 @@ const Index = () => {
     return `Recent conversation context:\n${summary}`;
   };
 
-  // Optimized function to split long messages into multiple parts, respecting sentence boundaries
-  const splitLongMessage = (text: string, maxLength: number = 700): string[] => {
-    if (text.length <= maxLength) {
-      return [text];
-    }
 
-    const parts: string[] = [];
-    let currentIndex = 0;
-
-    while (currentIndex < text.length) {
-      let endIndex = Math.min(currentIndex + maxLength, text.length);
-      
-      // If we're not at the end of the text, find the best break point
-      if (endIndex < text.length) {
-        // Look for sentence endings first (priority) - search backwards from endIndex
-        let searchIndex = endIndex;
-        let foundBreak = false;
-        
-        // Search within the last 25% of the max length for optimal breaks
-        const searchStart = currentIndex + maxLength * 0.75;
-        
-        while (searchIndex > searchStart) {
-          const char = text[searchIndex];
-          
-          // Priority 1: Sentence endings
-          if (char === '.' || char === '!' || char === '?') {
-            if (searchIndex + 1 >= text.length || text[searchIndex + 1] === ' ' || text[searchIndex + 1] === '\n') {
-              endIndex = searchIndex + 1;
-              foundBreak = true;
-              break;
-            }
-          }
-          
-          // Priority 2: Paragraph breaks
-          if (char === '\n') {
-            endIndex = searchIndex + 1;
-            foundBreak = true;
-            break;
-          }
-          
-          // Priority 3: Natural pauses
-          if (char === ',' || char === ';') {
-            if (searchIndex + 1 < text.length && text[searchIndex + 1] === ' ') {
-              endIndex = searchIndex + 2;
-              foundBreak = true;
-              break;
-            }
-          }
-          
-          searchIndex--;
-        }
-        
-        // If no good break found, break at word boundary
-        if (!foundBreak) {
-          while (endIndex > searchStart && text[endIndex] !== ' ') {
-            endIndex--;
-          }
-        }
-      }
-
-      const part = text.slice(currentIndex, endIndex).trim();
-      if (part) {
-        parts.push(part);
-      }
-      
-      currentIndex = endIndex;
-    }
-
-    return parts;
-  };
 
   // Add mouse position tracking
   useEffect(() => {
@@ -535,29 +466,19 @@ Remember: Be friendly and fun, but maintain professionalism. Keep responses conc
       const data = await response.json();
       const aiResponse = data.choices[0].message.content;
 
-      // Split long messages into multiple parts
-      const messageParts = splitLongMessage(aiResponse, 700);
-      
-      // Batch all messages for better performance
-      const aiMessages = messageParts.map((part, i) => ({
-        id: (Date.now() + i + 1).toString(),
-        text: part,
+      // Create single AI message
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: aiResponse,
         isUser: false,
         timestamp: new Date()
-      }));
+      };
       
-      // Add all messages at once for better performance
-      setMessages(prev => [...prev, ...aiMessages]);
+      // Add the message
+      setMessages(prev => [...prev, aiMessage]);
       
-      // Add minimal delay only if there are multiple parts
-      if (messageParts.length > 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      // Speak the first part only to avoid overwhelming audio
-      if (messageParts.length > 0) {
-        speakText(messageParts[0]);
-      }
+      // Speak the response
+      speakText(aiResponse);
       
     } catch (error) {
       console.error('Error calling Mistral AI:', error);
